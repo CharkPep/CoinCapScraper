@@ -6,36 +6,52 @@ const client = redis.createClient()
 const https = require('https');
 const fs = require('fs');
 
-async function autoScroll(page){
-    await page.evaluate(async () => {
-        await new Promise((resolve) => {
-            var totalHeight = 0;
-            var distance = 100;
-            var timer = setInterval(() => {
-                var scrollHeight = document.body.scrollHeight;
-                window.scrollBy(0, distance);
-                totalHeight += distance;
+// async function autoScroll(page){
+//     await page.evaluate(async () => {
+//         await new Promise((resolve) => {
+//             var totalHeight = 0;
+//             var distance = 100;
+//             var timer = setInterval(() => {
+//                 var scrollHeight = document.body.scrollHeight;
+//                 window.scrollBy(0, distance);
+//                 totalHeight += distance;
 
-                if(totalHeight >= scrollHeight - window.innerHeight){
-                    clearInterval(timer);
-                    resolve();
-                }
-            }, 100);
-        });
+//                 if(totalHeight >= scrollHeight - window.innerHeight){
+//                     clearInterval(timer);
+//                     resolve();
+//                 }
+//             }, 100);
+//         });
+//     });
+// }
+
+function timeoutFunction(delay) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, delay);
     });
-}
+  }
+  
 
 const Parse = (async (page) => {
-    // const res = await axios({ 
-    //     method : 'GET',
-    //     url : URL
-    // })
-
+    // await page.evaluate(async () => {
+    //     await new Promise((resolve) => {
+    //       let totalHeight = 0;
+    //       const distance = 3000;
+    //       const timer = setInterval(() => {
+    //         const scrollHeight = document.body.scrollHeight;
+    //         window.scrollBy(0, distance);
+    //         totalHeight += distance;
+      
+    //         if (totalHeight >= scrollHeight) {
+    //           clearInterval(timer);
+    //           resolve();
+    //         }
+    //       }, 1); // Adjust scroll speed as needed
+    //     });
+    // });
     
-    await autoScroll(page);
-
-
-    //console.log(await page.content())
 
     const coinInfo = [
         'id',
@@ -110,10 +126,12 @@ const Parse = (async (page) => {
             //console.log(index, $(elem).text())
             //console.log(coinInfo[indx])
             const path = `./coin_icon/icon_${coin.symbol}.png`
-            saveIcon(coin.icon, path )
+            //saveIcon(coin.icon, path )
 
         })
-        console.log(coin.symbol, coin)
+        //console.log(coin.symbol, coin.id)
+
+        await client.hSet('CoinMarketCap', coin.symbol, JSON.stringify(coin))
     
         
     })
@@ -138,19 +156,40 @@ const saveIcon = (imageUrl, savePath) => {
 
 }
 
-const startParse = (async () => {
-    await client.connect()
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    for(var i = 1;i <= 97;i++){
-        const URL = `https://coinmarketcap.com/?page=${i}`
+const startParse = async () => {
+    const startTime = new Date()
+    await client.connect();
+  
+    const browser = await puppeteer.launch({ headless: "false" });
+    const maxConcurrentPages = 12; // Adjust the number of concurrent pages as per your system's capacity
+  
+    const promises = [];
+  
+    for (let i = 1; i <= 97; i++) {
+      const promise = (async () => {
+        const page = await browser.newPage();
+        page.setViewport({   width: 640, height: 8000, })
+        const URL = `https://coinmarketcap.com/?page=${i}`;
         await page.goto(URL);
-
-        await Parse(page)
+        await Parse(page);
+        await page.close();
+      })();
+  
+      promises.push(promise);
+  
+      if (promises.length >= maxConcurrentPages) {
+        await Promise.race(promises);
+        promises.splice(0, maxConcurrentPages);
+      }
     }
-})
+  
+    await Promise.all(promises);
+  
+    await browser.close();
+    const endTime = new Date()
+    console.log(endTime - startTime)
+  };
+  
 
-
-module.exports = {
-    startParse
-}
+  startParse();
+  
