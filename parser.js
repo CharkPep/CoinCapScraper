@@ -1,44 +1,17 @@
 const cheerio = require('cheerio');
-const axios = require('axios')
 const redis = require('redis')
 const puppeteer = require('puppeteer')
 const client = redis.createClient() 
-const https = require('https');
-const fs = require('fs');
+const fs = require('fs')
 
-// async function autoScroll(page){
-//     await page.evaluate(async () => {
-//         await new Promise((resolve) => {
-//             var totalHeight = 0;
-//             var distance = 100;
-//             var timer = setInterval(() => {
-//                 var scrollHeight = document.body.scrollHeight;
-//                 window.scrollBy(0, distance);
-//                 totalHeight += distance;
-
-//                 if(totalHeight >= scrollHeight - window.innerHeight){
-//                     clearInterval(timer);
-//                     resolve();
-//                 }
-//             }, 100);
-//         });
-//     });
-// }
-
-function timeoutFunction(delay) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, delay);
-    });
-  }
-  
 
 const Parse = (async (page) => {
+    /// UNCOMMENT IF NEEDED
+    /// PAGE SCROLLER
     // await page.evaluate(async () => {
     //     await new Promise((resolve) => {
     //       let totalHeight = 0;
-    //       const distance = 3000;
+    //       const distance = 1000; // Adjust scroll distance if needed
     //       const timer = setInterval(() => {
     //         const scrollHeight = document.body.scrollHeight;
     //         window.scrollBy(0, distance);
@@ -51,7 +24,7 @@ const Parse = (async (page) => {
     //       }, 1); // Adjust scroll speed as needed
     //     });
     // });
-    
+
 
     const coinInfo = [
         'id',
@@ -80,18 +53,12 @@ const Parse = (async (page) => {
         $(parentElem).children().each((index, elem) => {
             var value = $(elem).text()
             if(index == 2){
-                //Icon
-                //console.log($('div > a > div',$(elem).html()).find('img').attr('src'))
                 value = $('div > a > div',$(elem).html()).find('img').attr('src')
                 coin[coinInfo[indx]] = value
                 indx++
-                //Name
-                ///console.log($('p:first-child',$(elem).html()).text())
                 value = $('p:first-child',$(elem).html()).text()
                 coin[coinInfo[indx]] = value
                 indx++
-                //Symbol
-                //console.log($('.coin-item-symbol',$(elem).html()).text())
                 value = $('.coin-item-symbol',$(elem).html()).text()
                 coin[coinInfo[indx]] = value
                 indx++
@@ -123,21 +90,17 @@ const Parse = (async (page) => {
                 coin[coinInfo[indx]] = value
                 indx++
             }
-            //console.log(index, $(elem).text())
-            //console.log(coinInfo[indx])
+
+            ///SAVE PATH FOR ICONS
             const path = `./coin_icon/icon_${coin.symbol}.png`
+
+            ///UNCOMENT IF NEEDED ICONS
             //saveIcon(coin.icon, path )
 
         })
-        //console.log(coin.symbol, coin.id)
-
-        await client.hSet('CoinMarketCap', coin.symbol, JSON.stringify(coin))
-    
-        
+        await client.hSet('CoinMarketCap', coin.symbol, JSON.stringify(coin))    
     })
     
-
-
 })
 
 
@@ -157,6 +120,7 @@ const saveIcon = (imageUrl, savePath) => {
 }
 
 const startParse = async () => {
+    console.log('Started parsing...')
     const startTime = new Date()
     await client.connect();
   
@@ -187,7 +151,7 @@ const startParse = async () => {
   
     await browser.close();
     const endTime = new Date()
-    console.log(endTime - startTime)
+    console.log('Finished in', endTime - startTime, 'ms')
   };
   
 
